@@ -1,0 +1,4 @@
+# Install torch 2.5.1 with the appropriate CPU/CUDA wheel before this file.
+torch==2.5.1
+numpy>=2.0,<3
+scikit-learn>=1.6,<2
