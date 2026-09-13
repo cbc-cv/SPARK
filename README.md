@@ -1,26 +1,39 @@
 # SPARK: XD-Violence Event-based Evaluation
 
 This repository provides the public evaluation package for SPARK on the
-XD-Violence event-based split. It contains the inference script, data split
-files, frame-level annotations required for AUC/AP calculation, and third-party
-notices. Model weights are distributed through GitHub Releases.
+XD-Violence event-based split. It contains the inference script, fixed data
+splits, frame-level annotations required for AUC/AP calculation, and third-party
+notices. Model weights are provided separately through GitHub Releases.
 
-## 中文说明
+## Repository Contents
 
-本仓库用于复现 SPARK 在 **XD-Violence / Event-based / Fully Connected** 设置下的测试结果。仓库中只保留：
+```text
+SPARK_main/
+  evaluate.py                  # Inference and AUC/AP evaluation
+  models/
+    README.md                  # Weight download instructions
+  data/
+    splits/xd_event/train/     # Fixed training split CSV files
+    splits/xd_event/test/      # Fixed test split CSV files
+    annotations/               # Frame-level labels for metric calculation
+  requirements.txt
+  third_party/                 # Third-party notices
+```
 
-- `evaluate.py`：推理与 AUC/AP 计算脚本。
-- `data/splits/xd_event/`：固定的数据划分 CSV。
-- `data/annotations/`：计算 AUC/AP 所需的测试集帧级标注。
-- `third_party/`：第三方声明。
+The repository does not include training code, split-generation code, or the
+P2P communication procedure. The test script only reads the test split CSV files
+and the provided annotations.
 
-模型权重不直接放在 Git 仓库中。请在仓库右侧的 **Releases** 页面下载权重压缩包，并解压到：
+## Model Weights
+
+Model weights are not stored directly in this Git repository. Please download
+the weight archive from the **Releases** page and extract it into:
 
 ```text
 SPARK_main/models/
 ```
 
-解压后目录应包含：
+After extraction, the directory should contain:
 
 ```text
 models/
@@ -33,34 +46,48 @@ models/
   text_encoder.pt
 ```
 
-客户端 0 到 5 的事件类别依次为 Fighting、Riot、Abuse、Shooting、Explosion、Car accident。测试只读取测试 CSV，不读取训练 CSV，也不包含训练代码或 P2P 通信流程。
+The client-event order is:
+
+| Client | Event category |
+| ---: | --- |
+| 0 | Fighting |
+| 1 | Riot |
+| 2 | Abuse |
+| 3 | Shooting |
+| 4 | Explosion |
+| 5 | Car accident |
+
+The `.pt` files contain the model weights and inference graphs. No separate
+training implementation or full CLIP checkpoint is required for evaluation.
 
 ## Environment
 
-Reference environment:
+The reference environment is Python 3.12 with PyTorch 2.5.1+cu121.
 
 ```bash
 python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 python -m pip install -r requirements.txt
 ```
 
-CPU evaluation is also supported, but slower.
+CPU evaluation is also supported, but it is slower.
 
 ## Data Preparation
 
-You need CLIP ViT-B/16 features for the XD-Violence test videos. Put all test
-feature files in one directory. Each file should be a `.npy` array with shape:
+The evaluator expects CLIP ViT-B/16 features for the XD-Violence test videos.
+Place all test feature files in a single directory. Each file should be a `.npy`
+array with shape:
 
 ```text
 (number_of_segments, 512)
 ```
 
 Each segment corresponds to 16 video frames. Raw videos and feature extraction
-code are not included in this release.
+code are not included in this release. Please use feature files that match the
+evaluation protocol; matching only the feature dimension is not sufficient.
 
 ## Run Evaluation
 
-After downloading and extracting the model weights from Releases:
+After downloading and extracting the model weights from Releases, run:
 
 ```bash
 python evaluate.py --features /path/to/XDTestClipFeatures
@@ -81,8 +108,8 @@ The default output file is:
 outputs/evaluation.json
 ```
 
-The terminal prints percentages, while the JSON file stores metrics in the
-range `[0, 1]`.
+The terminal prints metrics as percentages, while the JSON file stores metrics
+in the range `[0, 1]`.
 
 ## Expected Results
 
@@ -94,11 +121,11 @@ range `[0, 1]`.
 
 Metric definitions:
 
-- Local: each client is evaluated on its own test split, then the six metrics are averaged.
-- Overall: each client is evaluated on the union of all test splits, then the six metrics are averaged.
-- Cross-site: each client is evaluated on the other five test splits, then averaged across clients.
+- Local: each client is evaluated on its own test split, and the six metrics are averaged.
+- Overall: each client is evaluated on the union of all test splits, and the six metrics are averaged.
+- Cross-site: each client is evaluated on the other five test splits, and the metrics are averaged across clients.
 
-AP is computed with `average_precision_score`. Segment anomaly scores are
+AP is computed with `average_precision_score`. Segment-level anomaly scores are
 computed as `1 - softmax(logits)[normal]`, repeated 16 times, and compared with
-frame-level labels. The script computes metrics from model inference and does
-not read any precomputed result file.
+frame-level labels. The script computes all metrics from model inference and
+does not read any precomputed result file.
